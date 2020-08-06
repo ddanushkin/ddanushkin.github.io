@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bezier curve editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/svg.js/3.0.16/svg.min.js"></script>
+</head>
+
+<body>
+    <script>
+        const screen = SVG().addTo('body').size('500px', '500px');
+        const pathLayer = screen.group();
+        const pointsLayer = screen.group();
+        const state = {
+            root: document.getElementsByTagName('svg')[0],
+            points: [],
+            pointSize: 15,
+            selectedPoint: null,
+            mouseDown: false,
+            pointUnderCursor: null,
+            updateCursor: true,
+            path: null,
+        };
+
+        state.root.style = "border: 4px double black;";
+
+        document.addEventListener("keydown", event => {
+            if (event.isComposing)
+                return;
+            if (event.keyCode == 32 && state.points.length > 0)
+                resetCurve();
+        });
+
+        document.addEventListener("keydown", event => {
+            if (event.isComposing)
+                return;
+            if (event.keyCode == 32 && state.points.length > 0)
+                resetCurve();
+        });
+
+        screen.mousedown((event) => {
+            state.mouseDown = true;
+
+            if (state.pointUnderCursor)
+            {
+                state.selectedPoint = state.pointUnderCursor;
+                return;
+            }
+
+            if (state.points.length < 2)
+            {
+                const point = addPointToScreen(event.offsetX, event.offsetY);
+                state.points.push(point);
+                state.selectedPoint = point;
+            }
+
+            if (state.points.length == 2 && !state.path)
+            {
+                const path = addCurveToScreen(state.points[0], state.points[1]);
+                state.path = path;
+            }
+        });
+
+        screen.mouseup(() => {
+            state.root.style.cursor = state.pointUnderCursor ? "grab" : "default";
+            state.updateCursor = true;
+            state.mouseDown = false;
+        });
+
+        screen.mousemove((event) => {
+            if (state.mouseDown && state.selectedPoint == state.pointUnderCursor)
+            {
+                state.root.style.cursor = "grabbing";
+                state.updateCursor = false;
+                state.selectedPoint.center(event.offsetX, event.offsetY);
+                if (state.path)
+                    updateCurve(state.path);
+                state.selectedPoint.updateLine();
+            }
+        });
+
+        screen.mouseleave((event) => {
+            state.mouseDown = false;
+            state.pointUnderCursor = null;
+            state.updateCursor =  true;
+        });
+
+        SVG.extend(SVG.Shape, {
+            position() {
+                return {x: this.cx(), y: this.cy()};
+            }
+        });
+
+        const Point = (x, y, color, size) =>
+        {
+            const point = pointsLayer.circle(size).fill(color).center(x, y);
+
+            point.mouseenter(() =>
+            {
+                state.root.style.cursor = "grab";
+                if (!state.updateCursor)
+                    return;
+                state.pointUnderCursor = point;
+            });
+
+            point.mouseleave(() =>
+            {
+                state.root.style.cursor = "default";
+                if (!state.updateCursor)
+                    return;
+                state.pointUnderCursor = null;
+            });
+
+            point.defaultPosition = point.position();
+            point.ResetPosition = () => point.center(point.defaultPosition.x, point.defaultPosition.y);
+            return point;
+        }
+
+        const addPointToScreen = (x, y) =>
+        {
+            const point = Point(x, y, '#f06', state.pointSize);
+            point.controlPoint = Point(x, y, '#b300ff', state.pointSize).opacity(0.5);
+
+            const pointPos = point.position();
+            const controlPos = point.controlPoint.position();
+            point.line = pathLayer.line(pointPos.x, pointPos.y, controlPos.x, controlPos.y).stroke(
+                {color: '#eee', width: 2, linecap: 'round'}
+            );
+
+            point.index = state.points.length;
+
+            point.updateLine = () =>
+            {
+                const pointPos = point.position();
+                const controlPos = point.controlPoint.position();
+                point.line.plot(pointPos.x, pointPos.y, controlPos.x, controlPos.y);
+            }
+
+            point.controlPoint.updateLine = () => point.updateLine(); 
+            
+            point.Reset = () =>
+            {
+                point.ResetPosition();
+                point.controlPoint.ResetPosition();
+                return point;
+            };        
+
+            return point;
+        }
+
+        const getCurveString = (startPoint, startControlPoint, endPoint, endControlPoint) =>
+        {
+            return `M${startPoint.x} ${startPoint.y}
+                    C${startControlPoint.x} ${startControlPoint.y}
+                    ${endControlPoint.x} ${endControlPoint.y}
+                    ${endPoint.x} ${endPoint.y}`;
+        }
+
+        const addCurveToScreen = (startPoint, endPoint) =>
+        {
+            const path = pathLayer.path(
+                getCurveString(
+                    startPoint.position(),
+                    startPoint.controlPoint.position(),
+                    endPoint.position(),
+                    endPoint.controlPoint.position()
+                )
+            );
+
+            path.fill('none').stroke({ color: 'black', width: 2, linecap: 'round', linejoin: 'round' });
+            path.startPoint = startPoint;
+            path.endPoint = endPoint;
+            path.startControlPoint = startPoint.controlPoint;
+            path.endControlPoint = endPoint.controlPoint;
+
+            return path; 
+        }
+    
+        const updateCurve = (path) =>
+        {
+            path.plot(
+                getCurveString(
+                    path.startPoint.position(),
+                    path.startControlPoint.position(),
+                    path.endPoint.position(),
+                    path.endControlPoint.position()
+                )
+            );
+        }
+
+        const resetCurve = () =>
+        {
+            console.log("Reset.");
+            if (state.points.length > 0)
+                state.points[0].Reset().updateLine();
+            if (state.points.length > 1)    
+                state.points[1].Reset().updateLine();
+            if (state.path)
+                updateCurve(state.path);
+        }
+    </script>
+</body>
+
+</html>
