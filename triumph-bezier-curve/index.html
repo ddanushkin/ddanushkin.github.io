@@ -18,13 +18,15 @@
     </div>
     
     <script>
-        const screen = SVG().addTo('body').size('500px', '500px');
-        const pathLayer = screen.group();
-        const pointsLayer = screen.group();
         const state = {
-            root: document.getElementsByTagName('svg')[0],
+            width: 500,
+            height: 500,
+            minX: 0,
+            minY: 0,
+            maxX: 0,
+            maxY: 0,
             points: [],
-            pointSize: 15,
+            pointSize: 0,
             selectedPoint: null,
             mouseDown: false,
             pointUnderCursor: null,
@@ -32,6 +34,13 @@
             path: null,
         };
 
+        document.addEventListener('DOMContentLoaded', () => stateSetPointSize(15));
+
+        const screen = SVG().addTo('body').size(state.width.toString() + 'px', state.height.toString() + 'px');
+        const pathLayer = screen.group();
+        const pointsLayer = screen.group();
+
+        state.root = document.getElementsByTagName('svg')[0],
         state.root.style = "border: 4px double black;";
 
         document.addEventListener("keydown", event => {
@@ -82,7 +91,7 @@
             {
                 state.root.style.cursor = "grabbing";
                 state.updateCursor = false;
-                state.selectedPoint.center(event.offsetX, event.offsetY);
+                state.selectedPoint.MoveTo(event.offsetX, event.offsetY);
                 if (state.path)
                     updateCurve(state.path);
                 state.selectedPoint.updateLine();
@@ -101,9 +110,23 @@
             }
         });
 
+        const stateSetPointSize = (size) =>
+        {
+            if (size < 5)
+            {
+                stateSetPointSize(5);    
+                return;
+            }
+            state.pointSize = size;
+            state.minX = size * 0.5;
+            state.minY = state.minX;
+            state.maxX = state.width - state.minX;
+            state.maxY = state.height - state.minY; 
+        }
+
         const Point = (x, y, color, size) =>
         {
-            const point = pointsLayer.circle(size).fill(color).center(x, y);
+            const point = pointsLayer.circle(size).fill(color);
 
             point.mouseenter(() =>
             {
@@ -121,9 +144,18 @@
                 state.pointUnderCursor = null;
             });
 
+            point.MoveTo = (x, y) =>
+            {
+                x = Math.min(Math.max(state.minX, x), state.maxX);
+                y = Math.min(Math.max(state.minY, y), state.maxY);
+                point.center(x, y);
+                return point;
+            }
+
             point.defaultPosition = point.position();
-            point.ResetPosition = () => point.center(point.defaultPosition.x, point.defaultPosition.y);
-            return point;
+            point.ResetPosition = () => point.MoveTo(point.defaultPosition.x, point.defaultPosition.y);
+
+            return point.MoveTo(x, y);
         }
 
         const addPointToScreen = (x, y) =>
