@@ -152,7 +152,7 @@
                 return point;
             }
 
-            point.defaultPosition = point.position();
+            point.defaultPosition = {x: x, y: y};
             point.ResetPosition = () => point.MoveTo(point.defaultPosition.x, point.defaultPosition.y);
 
             return point.MoveTo(x, y);
@@ -232,7 +232,6 @@
 
         const resetCurve = () =>
         {
-            console.log("Reset.");
             if (state.points.length > 0)
                 state.points[0].Reset().updateLine();
             if (state.points.length > 1)    
