@@ -50,13 +50,6 @@
                 resetCurve();
         });
 
-        document.addEventListener("keydown", event => {
-            if (event.isComposing)
-                return;
-            if (event.keyCode == 32 && state.points.length > 0)
-                resetCurve();
-        });
-
         screen.mousedown((event) => {
             state.mouseDown = true;
 
